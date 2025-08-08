@@ -13,6 +13,7 @@ pub struct DesktopApp {
     #[allow(unused)]
     pub path: PathBuf,
     pub resolved_icon_path: Option<PathBuf>,
+    pub description: Option<String>,
 }
 
 // Removed unused DesktopEntry struct; parse by hand in parse_desktop_file
@@ -51,6 +52,8 @@ fn parse_desktop_file(path: &Path) -> Option<DesktopApp> {
     let mut name = None;
     let mut exec = None;
     let mut icon = None;
+    let mut comment: Option<String> = None;
+    let mut generic_name: Option<String> = None;
     for line in content.lines() {
         let line = line.trim();
         if line.starts_with('#') || line.is_empty() { continue; }
@@ -62,9 +65,12 @@ fn parse_desktop_file(path: &Path) -> Option<DesktopApp> {
         if let Some(rest) = line.strip_prefix("Name=") { name = Some(rest.to_string()); }
         if let Some(rest) = line.strip_prefix("Exec=") { exec = Some(rest.to_string()); }
         if let Some(rest) = line.strip_prefix("Icon=") { icon = Some(rest.to_string()); }
+        if let Some(rest) = line.strip_prefix("Comment=") { comment = Some(rest.to_string()); }
+        if let Some(rest) = line.strip_prefix("GenericName=") { generic_name = Some(rest.to_string()); }
     }
     let name = name?;
-    Some(DesktopApp{ name, exec, icon, path: path.to_path_buf(), resolved_icon_path: None })
+    let description = comment.or(generic_name);
+    Some(DesktopApp{ name, exec, icon, path: path.to_path_buf(), resolved_icon_path: None, description })
 }
 
 impl DesktopApp {

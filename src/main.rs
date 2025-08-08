@@ -85,7 +85,7 @@ impl AppState {
         for a in app_matches.into_iter().take(5) {
             self.results.push(Entry{
                 title: a.name.clone(),
-                subtitle: a.exec.clone().unwrap_or_default(),
+                subtitle: a.description.clone().filter(|s| !s.is_empty()).or_else(|| a.exec.clone()).unwrap_or_default(),
                 action: Action::LaunchApp(a.exec_unescaped()),
             });
         }
