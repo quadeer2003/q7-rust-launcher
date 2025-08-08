@@ -1,0 +1,32 @@
+# Rust build output
+/target/
+**/*.rlib
+
+# Incremental build artifacts
+**/*.rmeta
+
+# VS Code / IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor swap/backup files
+*~
+*.swp
+*.swo
+
+# Logs and env
+*.log
+.env
+.env.*
+
+# Cargo local stuff (local overrides)
+.cargo/
+
+# Misc
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
