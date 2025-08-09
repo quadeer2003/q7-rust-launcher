@@ -8,6 +8,7 @@ Features
 - File search via `fd` (prefix: `f `)
 - Command runner (fallback when no app/file chosen)
 - Web search (prefix `?query` or `g query` → opens in browser)
+ - Web search with custom prefixes (configurable; defaults include `?`, `g `, `yt `, `w `, `gh `)
 - i3-friendly: undecorated, on-top, and self-centers on open
 
 Current UI
@@ -60,3 +61,28 @@ Troubleshooting
 xprop | grep -E 'WM_NAME|_NET_WM_NAME'
 ```
 Then update the i3 rule’s title accordingly.
+
+## Custom prefixes and search URLs
+
+You can define your own prefixes that open a URL with the typed text substituted in place of `%s`:
+
+1) Copy the example to your config folder:
+	 - System-wide default example: `assets/config.json`
+	 - User override: `~/.config/q7-launcher/config.json`
+
+2) Format:
+
+```
+{
+	"search_engines": [
+		{ "name": "DuckDuckGo", "prefix": "?",  "url": "https://duckduckgo.com/?q=%s" },
+		{ "name": "Google",     "prefix": "g ", "url": "https://www.google.com/search?q=%s" },
+		{ "name": "StackOverflow","prefix": "so ","url": "https://stackoverflow.com/search?q=%s" }
+	]
+}
+```
+
+Notes
+- `prefix` is matched at the start of the query, the rest becomes the search term.
+- `%s` is replaced with the URL-encoded term.
+- First matching prefix wins; keep them distinct (e.g., `g ` vs `gh `).

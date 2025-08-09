@@ -1,6 +1,7 @@
 mod search;
 mod commands;
 mod apps;
+mod config;
 
 use eframe::{egui, NativeOptions};
 use egui::{RichText, TextStyle};
@@ -34,6 +35,7 @@ struct AppState {
     query: String,
     results: Vec<Entry>,
     all_apps: Vec<apps::DesktopApp>,
+    config: config::Config,
     selected: usize,
     center_frames_remaining: u8,
     focused_once: bool,
@@ -48,6 +50,7 @@ impl Default for AppState {
         query: String::new(),
         results: vec![],
         all_apps: vec![],
+    config: config::Config::default(),
         selected: 0,
         center_frames_remaining: 3,
         focused_once: false,
@@ -68,15 +71,18 @@ impl AppState {
         self.results.clear();
         if q.is_empty() { return; }
 
-        // Web search prefixes
-        if q.starts_with('?') || q.starts_with("g ") {
-            let qq = q.trim_start_matches('?').trim_start_matches("g ").trim();
-            if !qq.is_empty() {
-                self.results.push(Entry{
-                    title: format!("Search web for: {}", qq),
-                    subtitle: "Open in default browser".into(),
-                    action: Action::WebSearch(qq.into()),
-                });
+        // Web search via configurable prefixes
+        for eng in &self.config.search_engines {
+            if q.starts_with(&eng.prefix) {
+                let term = q[eng.prefix.len()..].trim();
+                if !term.is_empty() {
+                    let url = config::build_search_url(eng, term);
+                    self.results.push(Entry{
+                        title: format!("Search {} for: {}", eng.name, term),
+                        subtitle: "Open in default browser".into(),
+                        action: Action::WebSearch(url),
+                    });
+                }
             }
         }
 
@@ -157,8 +163,7 @@ fn run_action(a: &Action) {
         Action::RunCmd(cmd) => {
             let _ = crate::commands::run_shell(cmd);
         }
-        Action::WebSearch(q) => {
-            let url = format!("https://duckduckgo.com/?q={}", urlencoding::encode(q));
+    Action::WebSearch(url) => {
             let mut c = Command::new("xdg-open");
             c.arg(url);
             if env::var("LANG").is_err() { c.env("LANG", "C.UTF-8"); }
@@ -172,6 +177,7 @@ fn run_action(a: &Action) {
 fn main() -> eframe::Result<()> {
     let mut state = AppState::default();
     state.all_apps = apps::load_apps();
+    state.config = config::load_config();
 
     let state = Arc::new(Mutex::new(state));
 

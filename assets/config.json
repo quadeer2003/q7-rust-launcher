@@ -1,0 +1,22 @@
+{
+  "search_engines": [
+    { "name": "DuckDuckGo", "prefix": "l",  "url": "https://duckduckgo.com/?q=%s" },
+    { "name": "Google",     "prefix": "gg", "url": "https://www.google.com/search?q=%s" },
+    { "name": "YouTube",     "prefix": "yt", "url": "https://www.youtube.com/results?search_query=%s" },
+    { "name": "Wikipedia",   "prefix": "w",  "url": "https://en.wikipedia.org/wiki/Special:Search?search=%s" },
+    { "name": "GitHub repo", "prefix": "ghrepo","url": "https://github.com/search?q=%s" },
+    { "name": "Stack Overflow",   "prefix": "so",      "url": "https://stackoverflow.com/search?q=%s" },
+    { "name": "MDN Docs",         "prefix": "mdn",     "url": "https://developer.mozilla.org/en-US/search?q=%s" },
+    { "name": "npm Packages",     "prefix": "npm",     "url": "https://www.npmjs.com/search?q=%s" },
+    { "name": "PyPI",             "prefix": "pypi",    "url": "https://pypi.org/search/?q=%s" },
+    { "name": "Google Images",    "prefix": "img",     "url": "https://www.google.com/images?q=%s" },
+    { "name": "Reddit",           "prefix": "rd",      "url": "https://www.reddit.com/search/?q=%s" },
+    { "name": "Amazon",           "prefix": "amz",     "url": "https://www.amazon.com/s?k=%s" },
+    { "name": "Twitter/X",        "prefix": "tw",      "url": "https://twitter.com/search?q=%s" },
+    { "name": "LinkedIn",         "prefix": "li",      "url": "https://www.linkedin.com/search/results/all/?keywords=%s" },
+    { "name": "Google Translate", "prefix": "tr",      "url": "https://translate.google.com/?sl=auto&tl=en&text=%s" },
+    { "name": "Bing",             "prefix": "bing",    "url": "https://www.bing.com/search?q=%s" },
+    { "name": "Dev.to",           "prefix": "devto",   "url": "https://dev.to/search?q=%s" }
+  ]
+}
+
