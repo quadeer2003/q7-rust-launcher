@@ -24,6 +24,7 @@ enum Action {
     OpenFile(String),
     RunCmd(String),
     WebSearch(String),
+    ApplyTheme(String),
     None,
 }
 
@@ -42,6 +43,7 @@ struct AppState {
     icon_textures: HashMap<String, egui::TextureHandle>,
     last_input: Instant,
     last_fd_query: String,
+    theme: ThemePalette,
 }
 
 impl Default for AppState {
@@ -57,7 +59,206 @@ impl Default for AppState {
         icon_textures: HashMap::new(),
         last_input: Instant::now(),
         last_fd_query: String::new(),
+        theme: ThemePalette::dracula(),
     }
+    }
+}
+
+// ----- Theme system -----
+#[derive(Clone, Copy)]
+struct ThemePalette {
+    bg: egui::Color32,
+    input_bg: egui::Color32,
+    selection_bg: egui::Color32,
+    fg: egui::Color32,
+    muted: egui::Color32,
+}
+
+impl ThemePalette {
+    const fn rgb(hex: u32) -> egui::Color32 {
+        egui::Color32::from_rgb(
+            ((hex >> 16) & 0xFF) as u8,
+            ((hex >> 8) & 0xFF) as u8,
+            (hex & 0xFF) as u8,
+        )
+    }
+
+    fn dracula() -> Self {
+        Self {
+            bg: Self::rgb(0x282A36),
+            input_bg: Self::rgb(0x3B3E4A),
+            selection_bg: Self::rgb(0x44475A),
+            fg: Self::rgb(0xF8F8F2),
+            muted: Self::rgb(0xB9BBC5),
+        }
+    }
+    fn solarized_dark() -> Self {
+        Self {
+            bg: Self::rgb(0x002B36), // base03
+            input_bg: Self::rgb(0x073642),
+            selection_bg: Self::rgb(0x073642),
+            fg: Self::rgb(0x839496), // base0
+            muted: Self::rgb(0x586e75),
+        }
+    }
+    fn tokyonight() -> Self {
+        Self {
+            bg: Self::rgb(0x1A1B26),
+            input_bg: Self::rgb(0x2A2E3F),
+            selection_bg: Self::rgb(0x2F334D),
+            fg: Self::rgb(0xC0CAF5),
+            muted: Self::rgb(0x9AA5CE),
+        }
+    }
+    fn catppuccin() -> Self {
+        Self {
+            bg: Self::rgb(0x1E1E2E), // Mocha base
+            input_bg: Self::rgb(0x313244),
+            selection_bg: Self::rgb(0x313244),
+            fg: Self::rgb(0xCDD6F4),
+            muted: Self::rgb(0xA6ADC8),
+        }
+    }
+    fn gruvbox_dark() -> Self {
+        Self {
+            bg: Self::rgb(0x282828),
+            input_bg: Self::rgb(0x3C3836),
+            selection_bg: Self::rgb(0x3C3836),
+            fg: Self::rgb(0xEBDBB2),
+            muted: Self::rgb(0xBDAE93),
+        }
+    }
+
+    fn iceberg_dark() -> Self {
+        Self {
+            bg: Self::rgb(0x161821),
+            input_bg: Self::rgb(0x1F2230),
+            selection_bg: Self::rgb(0x2E313F),
+            fg: Self::rgb(0xC6C8D1),
+            muted: Self::rgb(0xA7ADBA),
+        }
+    }
+    fn bluloco_dark() -> Self {
+        Self {
+            bg: Self::rgb(0x1E1E1E),
+            input_bg: Self::rgb(0x2C2C2C),
+            selection_bg: Self::rgb(0x2F343F),
+            fg: Self::rgb(0xE5E7EB),
+            muted: Self::rgb(0x9AA0A6),
+        }
+    }
+    fn nord() -> Self {
+        Self {
+            bg: Self::rgb(0x2E3440),
+            input_bg: Self::rgb(0x3B4252),
+            selection_bg: Self::rgb(0x434C5E),
+            fg: Self::rgb(0xECEFF4),
+            muted: Self::rgb(0xD8DEE9),
+        }
+    }
+    fn one_dark() -> Self {
+        Self {
+            bg: Self::rgb(0x282C34),
+            input_bg: Self::rgb(0x30343C),
+            selection_bg: Self::rgb(0x3E4451),
+            fg: Self::rgb(0xECEFF4),
+            muted: Self::rgb(0x98A2B3),
+        }
+    }
+    fn monokai_pro() -> Self {
+        Self {
+            bg: Self::rgb(0x2D2A2E),
+            input_bg: Self::rgb(0x38353A),
+            selection_bg: Self::rgb(0x403E43),
+            fg: Self::rgb(0xFCFCFA),
+            muted: Self::rgb(0xA59F85),
+        }
+    }
+    fn horizon_dark() -> Self {
+        Self {
+            bg: Self::rgb(0x1C1E26),
+            input_bg: Self::rgb(0x262833),
+            selection_bg: Self::rgb(0x2E303E),
+            fg: Self::rgb(0xE0E0E0),
+            muted: Self::rgb(0x9CA3AF),
+        }
+    }
+    fn night_owl() -> Self {
+        Self {
+            bg: Self::rgb(0x011627),
+            input_bg: Self::rgb(0x0B2942),
+            selection_bg: Self::rgb(0x103554),
+            fg: Self::rgb(0xD6DEEB),
+            muted: Self::rgb(0xA1B6E3),
+        }
+    }
+    fn ayu_dark() -> Self {
+        Self {
+            bg: Self::rgb(0x0F1419),
+            input_bg: Self::rgb(0x1A1F26),
+            selection_bg: Self::rgb(0x1F2430),
+            fg: Self::rgb(0xE6E1CF),
+            muted: Self::rgb(0x9DA5B4),
+        }
+    }
+    fn moonlight() -> Self {
+        Self {
+            bg: Self::rgb(0x1E2030),
+            input_bg: Self::rgb(0x222436),
+            selection_bg: Self::rgb(0x2F334D),
+            fg: Self::rgb(0xC8D3F5),
+            muted: Self::rgb(0xA9B8E8),
+        }
+    }
+    fn material_dark() -> Self {
+        Self {
+            bg: Self::rgb(0x212121),
+            input_bg: Self::rgb(0x2A2A2A),
+            selection_bg: Self::rgb(0x373737),
+            fg: Self::rgb(0xEEEEEE),
+            muted: Self::rgb(0xBDBDBD),
+        }
+    }
+
+    fn from_name(name: &str) -> Option<Self> {
+        match name.to_lowercase().as_str() {
+            "dracula" => Some(Self::dracula()),
+            "solarized dark" | "solarized-dark" | "solarized" => Some(Self::solarized_dark()),
+            "tokyonight" => Some(Self::tokyonight()),
+            "catppuccin" => Some(Self::catppuccin()),
+            "gruvbox dark" | "gruvbox-dark" | "gruvbox" => Some(Self::gruvbox_dark()),
+            "iceberg dark" | "iceberg" => Some(Self::iceberg_dark()),
+            "bluloco dark" | "bluloco" => Some(Self::bluloco_dark()),
+            "nord" => Some(Self::nord()),
+            "one dark" | "one-dark" | "onedark" => Some(Self::one_dark()),
+            "monokai pro" | "monokai-pro" | "monokaipro" | "monokai" => Some(Self::monokai_pro()),
+            "horizon dark" | "horizon-dark" | "horizon" => Some(Self::horizon_dark()),
+            "night owl" | "night-owl" | "nightowl" => Some(Self::night_owl()),
+            "ayu dark" | "ayu-dark" | "ayu" => Some(Self::ayu_dark()),
+            "moonlight" => Some(Self::moonlight()),
+            "material dark" | "material-dark" | "material" => Some(Self::material_dark()),
+            _ => None,
+        }
+    }
+
+    fn names() -> &'static [&'static str] {
+        &[
+            "Dracula",
+            "Solarized Dark",
+            "Tokyonight",
+            "Catppuccin",
+            "Gruvbox Dark",
+            "Iceberg Dark",
+            "Bluloco Dark",
+            "Nord",
+            "One Dark",
+            "Monokai Pro",
+            "Horizon Dark",
+            "Night Owl",
+            "Ayu Dark",
+            "Moonlight",
+            "Material Dark",
+        ]
     }
 }
 
@@ -70,6 +271,18 @@ impl AppState {
         let q = q_apps;
         self.results.clear();
         if q.is_empty() { return; }
+
+        // Theme picker: type "theme" to list themes
+        if q.starts_with("theme") {
+            for name in ThemePalette::names().iter() {
+                self.results.push(Entry{
+                    title: (*name).to_string(),
+                    subtitle: "Apply color scheme".into(),
+                    action: Action::ApplyTheme((*name).to_string()),
+                });
+            }
+            return;
+        }
 
         // Web search via configurable prefixes
         for eng in &self.config.search_engines {
@@ -163,12 +376,15 @@ fn run_action(a: &Action) {
         Action::RunCmd(cmd) => {
             let _ = crate::commands::run_shell(cmd);
         }
-    Action::WebSearch(url) => {
+        Action::WebSearch(url) => {
             let mut c = Command::new("xdg-open");
             c.arg(url);
             if env::var("LANG").is_err() { c.env("LANG", "C.UTF-8"); }
             if env::var("LC_ALL").is_err() { c.env("LC_ALL", "C.UTF-8"); }
             let _ = c.stdout(Stdio::null()).stderr(Stdio::null()).spawn();
+        }
+        Action::ApplyTheme(_) => {
+            // no-op here; theme is applied in UI state
         }
         Action::None => {}
     }
@@ -178,6 +394,11 @@ fn main() -> eframe::Result<()> {
     let mut state = AppState::default();
     state.all_apps = apps::load_apps();
     state.config = config::load_config();
+    if let Some(name) = state.config.current_theme.clone() {
+        if let Some(p) = ThemePalette::from_name(&name) {
+            state.theme = p;
+        }
+    }
 
     let state = Arc::new(Mutex::new(state));
 
@@ -217,7 +438,7 @@ fn main() -> eframe::Result<()> {
         }
 
         egui::CentralPanel::default().frame(
-            egui::Frame::none().fill(egui::Color32::BLACK)
+            egui::Frame::none().fill(st.theme.bg)
         ).show(ctx, |ui| {
             ui.add_space(8.0);
 
@@ -225,7 +446,7 @@ fn main() -> eframe::Result<()> {
             let mut resp: Option<egui::Response> = None;
             ui.vertical_centered(|ui| {
                 // Draw a light rounded background for the input area
-                let bg = egui::Color32::from_gray(30);
+                let bg = st.theme.input_bg;
                 let (rect, _) = ui.allocate_exact_size(egui::vec2(540.0, 44.0), egui::Sense::hover());
                 let rounding = egui::Rounding::same(8.0);
                 ui.painter().rect_filled(rect, rounding, bg);
@@ -265,9 +486,21 @@ fn main() -> eframe::Result<()> {
             if up { if st.selected > 0 { st.selected -= 1; } }
             if down { if st.selected + 1 < st.results.len() { st.selected += 1; } }
             if enter {
-                if let Some(sel) = st.results.get(st.selected) {
-                    run_action(&sel.action);
-                    ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
+                if let Some(action) = st.results.get(st.selected).map(|e| e.action.clone()) {
+                    match action {
+                        Action::ApplyTheme(name) => {
+                            if let Some(p) = ThemePalette::from_name(&name) {
+                                st.theme = p;
+                                st.config.current_theme = Some(name);
+                                let _ = config::save_config(&st.config);
+                            }
+                            // Do not close; just re-render with new theme
+                        }
+                        other => {
+                            run_action(&other);
+                            ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
+                        }
+                    }
                 }
             }
 
@@ -279,7 +512,7 @@ fn main() -> eframe::Result<()> {
                     let items: Vec<(usize, Entry)> = st.results.iter().cloned().enumerate().collect();
                     for (idx, e) in items.into_iter() {
                         let is_selected = idx == st.selected;
-                        let row_selected_bg = egui::Color32::from_gray(60);
+                        let row_selected_bg = st.theme.selection_bg;
                         let inner = egui::Frame::none()
                             .fill(if is_selected { row_selected_bg } else { egui::Color32::TRANSPARENT })
                             .inner_margin(egui::Margin::symmetric(ROW_INNER_XPAD, ROW_INNER_YPAD))
@@ -342,13 +575,13 @@ fn main() -> eframe::Result<()> {
 
                                     ui.vertical(|ui| {
                                         let title = if is_selected {
-                                            RichText::new(&e.title).strong().underline().size(RESULT_TITLE_FONT_SIZE)
+                                            RichText::new(&e.title).color(st.theme.fg).strong().underline().size(RESULT_TITLE_FONT_SIZE)
                                         } else {
-                                            RichText::new(&e.title).strong().size(RESULT_TITLE_FONT_SIZE)
+                                            RichText::new(&e.title).color(st.theme.fg).strong().size(RESULT_TITLE_FONT_SIZE)
                                         };
                                         ui.label(title);
                                         ui.add_space(2.0);
-                                        ui.label(egui::RichText::new(&e.subtitle).weak().size(RESULT_SUBTITLE_FONT_SIZE));
+                                        ui.label(egui::RichText::new(&e.subtitle).color(st.theme.muted).size(RESULT_SUBTITLE_FONT_SIZE));
                                     });
                                 });
                             });
@@ -360,10 +593,22 @@ fn main() -> eframe::Result<()> {
                 });
             });
             if let Some(idx) = clicked_idx {
-                let action = st.results[idx].action.clone();
                 st.selected = idx;
-                run_action(&action);
-                ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
+                if let Some(action) = st.results.get(idx).map(|e| e.action.clone()) {
+                    match action {
+                        Action::ApplyTheme(name) => {
+                            if let Some(p) = ThemePalette::from_name(&name) {
+                                st.theme = p;
+                                st.config.current_theme = Some(name);
+                                let _ = config::save_config(&st.config);
+                            }
+                        }
+                        other => {
+                            run_action(&other);
+                            ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
+                        }
+                    }
+                }
             }
 
             // File mode ('f ') is immediate now; no debounce needed

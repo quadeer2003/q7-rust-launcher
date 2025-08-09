@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 pub struct Config {
     #[serde(default)]
     pub search_engines: Vec<SearchEngine>,
+    #[serde(default)]
+    pub current_theme: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -29,6 +31,7 @@ impl Default for Config {
                 SearchEngine { name: "Wikipedia".into(), prefix: "w ".into(), url: "https://en.wikipedia.org/wiki/Special:Search?search=%s".into() },
                 SearchEngine { name: "GitHub".into(), prefix: "gh ".into(), url: "https://github.com/search?q=%s".into() },
             ],
+            current_theme: Some("Dracula".into()),
         }
     }
 }
@@ -53,6 +56,16 @@ pub fn load_config() -> Config {
     }
     // Default built-ins
     Config::default()
+}
+
+pub fn save_config(cfg: &Config) -> std::io::Result<()> {
+    // Ensure XDG config directory exists and write there
+    let bd = xdg::BaseDirectories::with_prefix("q7-launcher").map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+    let path = bd.place_config_file("config.json")
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+    let json = serde_json::to_string_pretty(cfg)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+    std::fs::write(path, json)
 }
 
 pub fn build_search_url(engine: &SearchEngine, term: &str) -> String {
