@@ -510,6 +510,7 @@ fn main() -> eframe::Result<()> {
                 ui.vertical_centered(|ui| {
                     let desired_width = 600.0;
                     let items: Vec<(usize, Entry)> = st.results.iter().cloned().enumerate().collect();
+                    let mut selected_row_rect: Option<egui::Rect> = None;
                     for (idx, e) in items.into_iter() {
                         let is_selected = idx == st.selected;
                         let row_selected_bg = st.theme.selection_bg;
@@ -585,10 +586,14 @@ fn main() -> eframe::Result<()> {
                                     });
                                 });
                             });
+                        if is_selected { selected_row_rect = Some(inner.response.rect); }
                         if inner.response.clicked() {
                             clicked_idx = Some(idx);
                         }
                         ui.add_space(6.0);
+                    }
+                    if up || down {
+                        if let Some(rect) = selected_row_rect { ui.scroll_to_rect(rect, Some(egui::Align::Center)); }
                     }
                 });
             });
