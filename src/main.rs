@@ -48,19 +48,19 @@ struct AppState {
 
 impl Default for AppState {
     fn default() -> Self {
-    Self {
-        query: String::new(),
-        results: vec![],
-        all_apps: vec![],
-    config: config::Config::default(),
-        selected: 0,
-        center_frames_remaining: 3,
-        focused_once: false,
-        icon_textures: HashMap::new(),
-        last_input: Instant::now(),
-        last_fd_query: String::new(),
-        theme: ThemePalette::dracula(),
-    }
+        Self {
+            query: String::new(),
+            results: vec![],
+            all_apps: vec![],
+            config: config::Config::default(),
+            selected: 0,
+            center_frames_remaining: 6,
+            focused_once: false,
+            icon_textures: HashMap::new(),
+            last_input: Instant::now(),
+            last_fd_query: String::new(),
+            theme: ThemePalette::dracula(),
+        }
     }
 }
 
@@ -334,27 +334,41 @@ impl AppState {
 }
 
 fn center_pos_from_xrandr(initial_size: egui::Vec2) -> Option<egui::Pos2> {
-    // Only works on X11 with xrandr available
+    // Works on X11 with xrandr available; handles missing primary by using first connected monitor.
     let out = Command::new("xrandr").arg("--current").output().ok()?;
     if !out.status.success() { return None; }
     let s = String::from_utf8_lossy(&out.stdout);
-    // Find the line with ' primary ' then extract WxH+X+Y
-    let mut geom = None;
+    let re = regex::Regex::new(r"(\d+)x(\d+)\+(\d+)\+(\d+)").ok()?;
+
+    // Try primary first
     for line in s.lines() {
         if line.contains(" primary ") {
-            if let Some(caps) = regex::Regex::new(r"(\d+)x(\d+)\+(\d+)\+(\d+)").ok()?.captures(line) {
-                let w: f32 = caps.get(1)?.as_str().parse::<u32>().ok()? as f32;
-                let h: f32 = caps.get(2)?.as_str().parse::<u32>().ok()? as f32;
-                let x: f32 = caps.get(3)?.as_str().parse::<u32>().ok()? as f32;
-                let y: f32 = caps.get(4)?.as_str().parse::<u32>().ok()? as f32;
+            if let Some(c) = re.captures(line) {
+                let w: f32 = c.get(1)?.as_str().parse::<u32>().ok()? as f32;
+                let h: f32 = c.get(2)?.as_str().parse::<u32>().ok()? as f32;
+                let x: f32 = c.get(3)?.as_str().parse::<u32>().ok()? as f32;
+                let y: f32 = c.get(4)?.as_str().parse::<u32>().ok()? as f32;
                 let cx = x + w / 2.0 - initial_size.x / 2.0;
                 let cy = y + h / 2.0 - initial_size.y / 2.0;
-                geom = Some(egui::pos2(cx, cy));
-                break;
+                return Some(egui::pos2(cx, cy));
             }
         }
     }
-    geom
+    // Fallback: first connected monitor with geometry
+    for line in s.lines() {
+        if line.contains(" connected") {
+            if let Some(c) = re.captures(line) {
+                let w: f32 = c.get(1)?.as_str().parse::<u32>().ok()? as f32;
+                let h: f32 = c.get(2)?.as_str().parse::<u32>().ok()? as f32;
+                let x: f32 = c.get(3)?.as_str().parse::<u32>().ok()? as f32;
+                let y: f32 = c.get(4)?.as_str().parse::<u32>().ok()? as f32;
+                let cx = x + w / 2.0 - initial_size.x / 2.0;
+                let cy = y + h / 2.0 - initial_size.y / 2.0;
+                return Some(egui::pos2(cx, cy));
+            }
+        }
+    }
+    None
 }
 
 fn run_action(a: &Action) {
@@ -394,8 +408,8 @@ fn main() -> eframe::Result<()> {
     let mut state = AppState::default();
     state.all_apps = apps::load_apps();
     state.config = config::load_config();
-    if let Some(name) = state.config.current_theme.clone() {
-        if let Some(p) = ThemePalette::from_name(&name) {
+    if let Some(name) = state.config.current_theme.as_deref() {
+        if let Some(p) = ThemePalette::from_name(name) {
             state.theme = p;
         }
     }
