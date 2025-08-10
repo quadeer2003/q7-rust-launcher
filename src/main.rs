@@ -36,6 +36,7 @@ struct AppState {
     query: String,
     results: Vec<Entry>,
     all_apps: Vec<apps::DesktopApp>,
+    app_by_name: HashMap<String, usize>,
     config: config::Config,
     selected: usize,
     center_frames_remaining: u8,
@@ -52,6 +53,7 @@ impl Default for AppState {
             query: String::new(),
             results: vec![],
             all_apps: vec![],
+            app_by_name: HashMap::new(),
             config: config::Config::default(),
             selected: 0,
             center_frames_remaining: 6,
@@ -333,12 +335,22 @@ impl AppState {
     }
 }
 
-fn center_pos_from_xrandr(initial_size: egui::Vec2) -> Option<egui::Pos2> {
-    // Works on X11 with xrandr available; handles missing primary by using first connected monitor.
+fn center_pos_from_xrandr_points(initial_size_points: egui::Vec2, pixels_per_point: f32) -> Option<egui::Pos2> {
+    // Compute centered position in points, using xrandr geometry in pixels and accounting for HiDPI scaling.
     let out = Command::new("xrandr").arg("--current").output().ok()?;
     if !out.status.success() { return None; }
     let s = String::from_utf8_lossy(&out.stdout);
     let re = regex::Regex::new(r"(\d+)x(\d+)\+(\d+)\+(\d+)").ok()?;
+
+    let desired_w_px = initial_size_points.x * pixels_per_point;
+    let desired_h_px = initial_size_points.y * pixels_per_point;
+
+    // Helper to compute clamped center within a monitor rect (in pixels)
+    let compute = |w: f32, h: f32, x: f32, y: f32| -> egui::Pos2 {
+        let cx_px = x + (w - desired_w_px).max(0.0) / 2.0;
+        let cy_px = y + (h - desired_h_px).max(0.0) / 2.0;
+        egui::pos2(cx_px / pixels_per_point, cy_px / pixels_per_point)
+    };
 
     // Try primary first
     for line in s.lines() {
@@ -348,9 +360,7 @@ fn center_pos_from_xrandr(initial_size: egui::Vec2) -> Option<egui::Pos2> {
                 let h: f32 = c.get(2)?.as_str().parse::<u32>().ok()? as f32;
                 let x: f32 = c.get(3)?.as_str().parse::<u32>().ok()? as f32;
                 let y: f32 = c.get(4)?.as_str().parse::<u32>().ok()? as f32;
-                let cx = x + w / 2.0 - initial_size.x / 2.0;
-                let cy = y + h / 2.0 - initial_size.y / 2.0;
-                return Some(egui::pos2(cx, cy));
+                return Some(compute(w, h, x, y));
             }
         }
     }
@@ -362,9 +372,7 @@ fn center_pos_from_xrandr(initial_size: egui::Vec2) -> Option<egui::Pos2> {
                 let h: f32 = c.get(2)?.as_str().parse::<u32>().ok()? as f32;
                 let x: f32 = c.get(3)?.as_str().parse::<u32>().ok()? as f32;
                 let y: f32 = c.get(4)?.as_str().parse::<u32>().ok()? as f32;
-                let cx = x + w / 2.0 - initial_size.x / 2.0;
-                let cy = y + h / 2.0 - initial_size.y / 2.0;
-                return Some(egui::pos2(cx, cy));
+                return Some(compute(w, h, x, y));
             }
         }
     }
@@ -407,6 +415,9 @@ fn run_action(a: &Action) {
 fn main() -> eframe::Result<()> {
     let mut state = AppState::default();
     state.all_apps = apps::load_apps();
+    for (i, a) in state.all_apps.iter().enumerate() {
+        state.app_by_name.insert(a.name.clone(), i);
+    }
     state.config = config::load_config();
     if let Some(name) = state.config.current_theme.as_deref() {
         if let Some(p) = ThemePalette::from_name(name) {
@@ -438,7 +449,7 @@ fn main() -> eframe::Result<()> {
 
         // Center the window for a few initial frames to account for WM sizing quirks (i3/X11)
         if st.center_frames_remaining > 0 {
-            let pos = center_pos_from_xrandr(INITIAL_SIZE)
+            let pos = center_pos_from_xrandr_points(INITIAL_SIZE, ctx.pixels_per_point() as f32)
                 .unwrap_or_else(|| {
                     let screen = ctx.screen_rect();
                     egui::pos2(
@@ -488,6 +499,7 @@ fn main() -> eframe::Result<()> {
                 st.last_input = Instant::now();
                 let file_mode = st.query.starts_with("f ");
                 st.refresh_results(file_mode);
+                if st.selected >= st.results.len() { st.selected = st.results.len().saturating_sub(1); }
                 if file_mode {
                     st.last_fd_query = st.query.clone();
                 }
@@ -537,8 +549,13 @@ fn main() -> eframe::Result<()> {
                                 ui.horizontal(|ui| {
                                     // Icon slot (load lazily for app entries)
                                     if let Action::LaunchApp(_) = e.action {
-                                        if let Some(app) = st.all_apps.iter().find(|a| a.name == e.title) {
-                                            if let Some(icon_path) = apps::resolve_icon_path(&app.icon) {
+                                        if let Some(&idx) = st.app_by_name.get(&e.title) {
+                                            let app = &st.all_apps[idx];
+                                            let icon_path_owned: Option<std::path::PathBuf> = match (&app.resolved_icon_path, &app.icon) {
+                                                (Some(p), _) => Some(p.clone()),
+                                                (None, icon_field) => apps::resolve_icon_path(icon_field),
+                                            };
+                                            if let Some(icon_path) = icon_path_owned.as_ref() {
                                                 let key = format!("{}@{}", icon_path.to_string_lossy(), ICON_SIZE_PX as i32);
                                                 if !st.icon_textures.contains_key(&key) {
                                                     let ext = icon_path.extension().and_then(|s| s.to_str()).unwrap_or("").to_ascii_lowercase();
