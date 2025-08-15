@@ -37,14 +37,22 @@ impl Default for Config {
 }
 
 pub fn load_config() -> Config {
-    // Try XDG config path: ~/.config/q7-launcher/config.json
-    let bd = xdg::BaseDirectories::with_prefix("q7-launcher").ok();
-    if let Some(bd) = &bd {
-        if let Some(path) = bd.find_config_file("config.json") {
-            if let Ok(s) = std::fs::read_to_string(&path) {
-                if let Ok(cfg) = serde_json::from_str::<Config>(&s) {
-                    return cfg;
+    #[cfg(not(windows))]
+    {
+        if let Ok(bd) = xdg::BaseDirectories::with_prefix("q7-launcher") {
+            if let Some(path) = bd.find_config_file("config.json") {
+                if let Ok(s) = std::fs::read_to_string(&path) {
+                    if let Ok(cfg) = serde_json::from_str::<Config>(&s) { return cfg; }
                 }
+            }
+        }
+    }
+    #[cfg(windows)]
+    {
+        if let Some(dir) = dirs::config_dir() {
+            let path = dir.join("q7-launcher").join("config.json");
+            if let Ok(s) = std::fs::read_to_string(&path) {
+                if let Ok(cfg) = serde_json::from_str::<Config>(&s) { return cfg; }
             }
         }
     }
@@ -59,13 +67,27 @@ pub fn load_config() -> Config {
 }
 
 pub fn save_config(cfg: &Config) -> std::io::Result<()> {
-    // Ensure XDG config directory exists and write there
-    let bd = xdg::BaseDirectories::with_prefix("q7-launcher").map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
-    let path = bd.place_config_file("config.json")
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
-    let json = serde_json::to_string_pretty(cfg)
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
-    std::fs::write(path, json)
+    #[cfg(not(windows))]
+    {
+        let bd = xdg::BaseDirectories::with_prefix("q7-launcher").map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+        let path = bd.place_config_file("config.json")
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+        let json = serde_json::to_string_pretty(cfg)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+        return std::fs::write(path, json);
+    }
+    #[cfg(windows)]
+    {
+        if let Some(dir) = dirs::config_dir() {
+            let folder = dir.join("q7-launcher");
+            std::fs::create_dir_all(&folder)?;
+            let path = folder.join("config.json");
+            let json = serde_json::to_string_pretty(cfg)
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+            return std::fs::write(path, json);
+        }
+        Ok(())
+    }
 }
 
 pub fn build_search_url(engine: &SearchEngine, term: &str) -> String {

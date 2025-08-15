@@ -335,8 +335,8 @@ impl AppState {
     }
 }
 
+#[cfg(not(windows))]
 fn center_pos_from_xrandr_points(initial_size_points: egui::Vec2, pixels_per_point: f32) -> Option<egui::Pos2> {
-    // Compute centered position in points, using xrandr geometry in pixels and accounting for HiDPI scaling.
     let out = Command::new("xrandr").arg("--current").output().ok()?;
     if !out.status.success() { return None; }
     let s = String::from_utf8_lossy(&out.stdout);
@@ -382,28 +382,51 @@ fn center_pos_from_xrandr_points(initial_size_points: egui::Vec2, pixels_per_poi
 fn run_action(a: &Action) {
     match a {
         Action::LaunchApp(cmd) => {
-            let mut c = Command::new("sh");
-            c.arg("-lc").arg(cmd);
-            if env::var("LANG").is_err() { c.env("LANG", "C.UTF-8"); }
-            if env::var("LC_ALL").is_err() { c.env("LC_ALL", "C.UTF-8"); }
-            let _ = c.stdout(Stdio::null()).stderr(Stdio::null()).spawn();
+            #[cfg(windows)]
+            {
+                let _ = Command::new("cmd").arg("/C").arg(cmd).stdout(Stdio::null()).stderr(Stdio::null()).spawn();
+            }
+            #[cfg(not(windows))]
+            {
+                let mut c = Command::new("sh");
+                c.arg("-lc").arg(cmd);
+                if env::var("LANG").is_err() { c.env("LANG", "C.UTF-8"); }
+                if env::var("LC_ALL").is_err() { c.env("LC_ALL", "C.UTF-8"); }
+                let _ = c.stdout(Stdio::null()).stderr(Stdio::null()).spawn();
+            }
         }
         Action::OpenFile(path) => {
-            let mut c = Command::new("xdg-open");
-            c.arg(path);
-            if env::var("LANG").is_err() { c.env("LANG", "C.UTF-8"); }
-            if env::var("LC_ALL").is_err() { c.env("LC_ALL", "C.UTF-8"); }
-            let _ = c.stdout(Stdio::null()).stderr(Stdio::null()).spawn();
+            #[cfg(windows)]
+            {
+                let _ = Command::new("cmd").arg("/C").arg("start").arg("").arg(path)
+                    .stdout(Stdio::null()).stderr(Stdio::null()).spawn();
+            }
+            #[cfg(not(windows))]
+            {
+                let mut c = Command::new("xdg-open");
+                c.arg(path);
+                if env::var("LANG").is_err() { c.env("LANG", "C.UTF-8"); }
+                if env::var("LC_ALL").is_err() { c.env("LC_ALL", "C.UTF-8"); }
+                let _ = c.stdout(Stdio::null()).stderr(Stdio::null()).spawn();
+            }
         }
         Action::RunCmd(cmd) => {
             let _ = crate::commands::run_shell(cmd);
         }
         Action::WebSearch(url) => {
-            let mut c = Command::new("xdg-open");
-            c.arg(url);
-            if env::var("LANG").is_err() { c.env("LANG", "C.UTF-8"); }
-            if env::var("LC_ALL").is_err() { c.env("LC_ALL", "C.UTF-8"); }
-            let _ = c.stdout(Stdio::null()).stderr(Stdio::null()).spawn();
+            #[cfg(windows)]
+            {
+                let _ = Command::new("cmd").arg("/C").arg("start").arg("").arg(url)
+                    .stdout(Stdio::null()).stderr(Stdio::null()).spawn();
+            }
+            #[cfg(not(windows))]
+            {
+                let mut c = Command::new("xdg-open");
+                c.arg(url);
+                if env::var("LANG").is_err() { c.env("LANG", "C.UTF-8"); }
+                if env::var("LC_ALL").is_err() { c.env("LC_ALL", "C.UTF-8"); }
+                let _ = c.stdout(Stdio::null()).stderr(Stdio::null()).spawn();
+            }
         }
         Action::ApplyTheme(_) => {
             // no-op here; theme is applied in UI state
@@ -449,17 +472,31 @@ fn main() -> eframe::Result<()> {
 
         // Center the window for a few initial frames to account for WM sizing quirks (i3/X11)
         if st.center_frames_remaining > 0 {
-            let pos = center_pos_from_xrandr_points(INITIAL_SIZE, ctx.pixels_per_point() as f32)
-                .unwrap_or_else(|| {
-                    let screen = ctx.screen_rect();
-                    egui::pos2(
-                        screen.center().x - INITIAL_SIZE.x / 2.0,
-                        screen.center().y - INITIAL_SIZE.y / 2.0,
-                    )
-                });
-            ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(INITIAL_SIZE));
-            ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(pos));
-            st.center_frames_remaining -= 1;
+            #[cfg(windows)]
+            {
+                let screen = ctx.screen_rect();
+                let pos = egui::pos2(
+                    screen.center().x - INITIAL_SIZE.x / 2.0,
+                    screen.center().y - INITIAL_SIZE.y / 2.0,
+                );
+                ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(INITIAL_SIZE));
+                ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(pos));
+                st.center_frames_remaining -= 1;
+            }
+            #[cfg(not(windows))]
+            {
+                let pos = center_pos_from_xrandr_points(INITIAL_SIZE, ctx.pixels_per_point() as f32)
+                    .unwrap_or_else(|| {
+                        let screen = ctx.screen_rect();
+                        egui::pos2(
+                            screen.center().x - INITIAL_SIZE.x / 2.0,
+                            screen.center().y - INITIAL_SIZE.y / 2.0,
+                        )
+                    });
+                ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(INITIAL_SIZE));
+                ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(pos));
+                st.center_frames_remaining -= 1;
+            }
         }
 
         egui::CentralPanel::default().frame(

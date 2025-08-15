@@ -1,53 +1,108 @@
 # q7 Launcher
 
-A lightweight launcher for Linux written in Rust using egui/eframe.
+A minimal, fast cross‑platform (Linux + Windows) launcher written in Rust using `eframe`/`egui`.
 
-Features
-- Launch GUI apps by parsing .desktop files
-- Fuzzy search over app names
-- File search via `fd` (prefix: `f `)
-- Command runner (fallback when no app/file chosen)
-- Web search (prefix `?query` or `g query` → opens in browser)
- - Web search with custom prefixes (configurable; defaults include `?`, `g `, `yt `, `w `, `gh `)
-- i3-friendly: undecorated, on-top, and self-centers on open
+## Features
+* App launch:
+	* Linux: parses `.desktop` entries (with description + icon resolution)
+	* Windows: enumerates Start Menu `.lnk` shortcuts and standalone `.exe` files
+* Fuzzy search over app names (Skim matcher)
+* File search:
+	* Linux: `fd` (prefix: `f <term>`)
+	* Windows: PowerShell scan of home + PATH plus `where.exe` fallback
+* Command runner (fallback when no app/file / prefix match)
+* Web search with configurable prefixes (`?`, `g `, `yt `, `w `, `gh `, etc.)
+* Theme switching: type `theme` to list & apply built‑in color schemes (persisted)
+* Minimal UI: centered (Linux) or screen‑centered (Windows), borderless, always-on-top
+* Icon caching and startup optimizations for snappy feel
 
-Current UI
-- Centered, frameless input with larger text
-- Icon + two-line result rows with a subtle full-width highlight for the selected row
-- Enter or click executes and closes the launcher
+Planned / partial:
+* Windows icon extraction for `.exe` / `.lnk` (stub in code – can be extended)
+* Better DPI-aware multi‑monitor centering via winit APIs
 
-Requirements
-- Rust toolchain (https://rustup.rs)
-- `fd` (fd-find): used for fast file search
-- Optional: `rsvg-convert` for crisp SVG icons
+## Current UI
+* Single input bar, large font
+* Two-line result rows (title + description / exec)
+* Highlighted selection follows arrow keys (auto-scroll)
+* Enter or click executes then exits
 
-Build
+## Requirements
+Mandatory:
+* Rust toolchain (https://rustup.rs)
+
+Linux extras:
+* `fd` (fd-find) for file search (omit if you only use web/app/command)
+* `rsvg-convert` (optional) for better SVG icon rasterization
+
+Windows extras:
+* PowerShell (built-in) used for broader file search
+* Optional future: COM Shell icon extraction (already partially scaffolded)
+
+## Build
 ```sh
 cargo build --release
 ```
 
-Run
+## Run
 ```sh
-./target/release/q7-launcher
+./target/release/q7-launcher   # Linux
+target\\release\\q7-launcher.exe  # Windows (PowerShell / cmd)
 ```
 
-i3 integration
-- Bind to a hotkey:
+## Assigning a Hotkey
+
+### Linux (i3 / sway)
+Add to your config:
 ```
-bindsym $mod+space exec --no-startup-id /path/to/q7-launcher/target/release/q7-launcher
+bindsym $mod+space exec --no-startup-id /absolute/path/to/q7-launcher/target/release/q7-launcher
 ```
 
-- Float + center (robust rule):
+Optional centering rule (i3):
 ```
-for_window [title="^q7 launcher$"] \
-	floating enable, \
-	focus, \
-	move position center, \
-	sticky enable, \
-	border pixel 0
+for_window [title="^q7 launcher$"] floating enable, focus, move position center, sticky enable, border pixel 0
 ```
 
-- If it occasionally spawns off-center, use a post-launch nudge on the keybind:
+### Linux (GNOME) via gsettings
+1. Install / build binary somewhere stable (e.g. ~/bin/q7-launcher)
+2. Create a custom keybinding slot:
+```sh
+gsettings set org.gnome.settings-daemon.plugins.media-keys custom-keybindings "['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/q7launcher/']"
+gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/q7launcher/ name 'q7 Launcher'
+gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/q7launcher/ command '/home/you/bin/q7-launcher'
+gsettings set org.gnome.settings-daemon.plugins.media-keys.custom-keybinding:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/q7launcher/ binding '<Super>space'
+```
+
+### Linux (KDE Plasma)
+System Settings → Shortcuts → Custom Shortcuts → Add Command:
+* Trigger: Meta+Space
+* Action: /path/to/q7-launcher
+
+### Windows (Auto Hotkey - recommended)
+Create a file `q7-hotkey.ahk`:
+```
+; Launch q7 launcher with Win+Space
+#Space::
+Run, C:\\Path\\To\\q7-launcher.exe
+return
+```
+Run AutoHotkey (v2 adjust syntax accordingly) and double-click script. To autostart place script in `%AppData%\Microsoft\Windows\Start Menu\Programs\Startup`.
+
+### Windows (Task Scheduler + Shortcut)
+* Create a shortcut to the exe.
+* Right-click → Properties → set Shortcut key field (e.g., Ctrl+Alt+Space).
+Note: Windows reserves Win+Space for layout switching; override via AutoHotkey if desired.
+
+### XFCE
+Settings → Keyboard → Application Shortcuts → Add:
+```
+/path/to/q7-launcher/target/release/q7-launcher
+```
+Bind to e.g. Super+Space.
+
+### Generic (systemd user service + hotkey daemon)
+Use `sxhkd` or `autokey` mapping a key to the binary path.
+
+Legacy i3 centering nudge (only if needed):
 ```
 bindsym $mod+space exec --no-startup-id sh -lc '
 	/path/to/q7-launcher/target/release/q7-launcher &
@@ -86,3 +141,19 @@ Notes
 - `prefix` is matched at the start of the query, the rest becomes the search term.
 - `%s` is replaced with the URL-encoded term.
 - First matching prefix wins; keep them distinct (e.g., `g ` vs `gh `).
+
+## Themes
+Type `theme` to list built-in themes, then select one. Theme persists via config (`current_theme`).
+
+## Windows Notes
+* Start Menu scan happens at startup (recursive). Large environments can add a slight delay; consider pruning paths if needed.
+* Icon extraction is not yet implemented – currently shows placeholder (text) until implemented.
+* PowerShell search depth is limited for speed; adjust in `search.rs` if you want deeper indexing.
+
+## Performance Tips
+* Build with `--release` for significant speed.
+* Remove `fd` if you don't use file search (comment out calls and dependency) to shrink binary.
+* Consider stripping debug symbols (already enabled in release profile).
+
+## License
+MIT (adjust if you add third-party code requiring attribution).
