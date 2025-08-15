@@ -7,6 +7,7 @@ use eframe::{egui, NativeOptions};
 use egui::{RichText, TextStyle};
 use std::sync::{Arc, Mutex};
 use std::process::{Command, Stdio};
+#[cfg(not(windows))]
 use std::env;
 use std::collections::HashMap;
 use std::time::Instant;

@@ -83,6 +83,7 @@ pub fn load_apps() -> Vec<DesktopApp> {
     }
 }
 
+#[cfg(not(windows))]
 fn parse_desktop_file(path: &Path) -> Option<DesktopApp> {
     let content = fs::read_to_string(path).ok()?;
     // very light parser: only lines in [Desktop Entry]
