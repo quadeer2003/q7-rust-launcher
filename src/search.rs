@@ -15,8 +15,8 @@ pub fn fd_search(query: &str, limit: usize) -> Vec<PathBuf> {
         // Use PowerShell to search top-level home and Desktop/Documents plus PATH executables.
         let home = std::env::var("USERPROFILE").or_else(|_| std::env::var("HOMEPATH")).unwrap_or_default();
         let ps_query = format!(
-            "$l=@();$p='{}';if(Test-Path $p){{$l+=Get-ChildItem -ErrorAction SilentlyContinue -Depth 2 -Path $p -Filter '*{}*'}};$env:PATH.Split(';')|ForEach-Object{if(Test-Path $_){$l+=Get-ChildItem -ErrorAction SilentlyContinue -Path $_ -Filter '*{}*'}};$l|Select -First {} -ExpandProperty FullName",
-            home.replace('\\','/'), query, query, limit
+            "$l=@();$p='{}';if(Test-Path $p){{$l+=Get-ChildItem -ErrorAction SilentlyContinue -Depth 2 -Path $p -Filter '*{}*'}};$env:PATH.Split(';')|ForEach-Object{{if(Test-Path $_){{$l+=Get-ChildItem -ErrorAction SilentlyContinue -Path $_ -Filter '*{}*'}}}};$l|Select -First {} -ExpandProperty FullName",
+            home.replace('\\', "/"), query, query, limit
         );
         if let Ok(out) = Command::new("powershell").arg("-NoProfile").arg("-Command").arg(ps_query).output() {
             if out.status.success() {

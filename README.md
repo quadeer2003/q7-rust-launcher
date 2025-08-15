@@ -150,6 +150,41 @@ Type `theme` to list built-in themes, then select one. Theme persists via config
 * Icon extraction is not yet implemented – currently shows placeholder (text) until implemented.
 * PowerShell search depth is limited for speed; adjust in `search.rs` if you want deeper indexing.
 
+## Installation
+
+### Download Pre-built Binaries
+
+Download the latest release from the [GitHub Releases](https://github.com/quadeer2003/q7-rust-launcher/releases) page:
+
+- **Linux**: Download `q7-launcher-linux-x86_64.tar.gz`
+- **Windows**: Download `q7-launcher-windows-x86_64.zip`
+
+Extract and run the executable.
+
+### Building from Source
+
+Clone the repository and build:
+
+```bash
+git clone https://github.com/quadeer2003/q7-rust-launcher.git
+cd q7-rust-launcher
+cargo build --release
+```
+
+The binary will be in `target/release/q7-launcher` (Linux) or `target/release/q7-launcher.exe` (Windows).
+
+### Creating a Release
+
+To create a new release with automatic binary builds:
+
+1. Create and push a new tag:
+   ```bash
+   git tag v1.0.0
+   git push origin v1.0.0
+   ```
+
+2. GitHub Actions will automatically build binaries for Linux and Windows and create a release.
+
 ## Performance Tips
 * Build with `--release` for significant speed.
 * Remove `fd` if you don't use file search (comment out calls and dependency) to shrink binary.

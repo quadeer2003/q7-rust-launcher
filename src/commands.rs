@@ -1,16 +1,16 @@
 use std::io::Result;
-use std::env;
-use std::process::{Command, Stdio};
+use std::process::Command;
 
 /// Spawn a non-blocking shell command using `sh -lc`.
 pub fn run_shell(cmd: &str) -> Result<()> {
     #[cfg(windows)]
     {
         Command::new("cmd").arg("/C").arg(cmd).spawn()?;
-        return Ok(());
     }
     #[cfg(not(windows))]
     {
+        use std::env;
+        use std::process::Stdio;
         let mut c = Command::new("sh");
         c.arg("-lc").arg(cmd);
         if env::var("LANG").is_err() { c.env("LANG", "C.UTF-8"); }
