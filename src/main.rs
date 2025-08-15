@@ -385,12 +385,19 @@ fn center_pos_from_xrandr_points(initial_size_points: egui::Vec2, pixels_per_poi
 
 #[cfg(windows)]
 fn center_window_windows(ctx: &egui::Context, window_size: egui::Vec2) {
-    // Use Windows API to get the primary monitor's work area (excluding taskbar)
-    use winapi::um::winuser::{GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN, GetCursorPos, MonitorFromPoint, GetMonitorInfoA, MONITORINFOEXA, MONITOR_DEFAULTTONEAREST};
+    // Use Windows API to get accurate monitor info and DPI-aware positioning
+    use winapi::um::winuser::{GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN, GetCursorPos, MonitorFromPoint, GetMonitorInfoA, MONITORINFOEXA, MONITOR_DEFAULTTONEAREST, GetDC, ReleaseDC, GetDesktopWindow};
+    use winapi::um::wingdi::{GetDeviceCaps, LOGPIXELSX};
     use winapi::shared::windef::POINT;
     use std::mem;
 
     unsafe {
+        // Get DPI scaling factor
+        let desktop_dc = GetDC(GetDesktopWindow());
+        let dpi = GetDeviceCaps(desktop_dc, LOGPIXELSX) as f32;
+        ReleaseDC(GetDesktopWindow(), desktop_dc);
+        let dpi_scale = dpi / 96.0; // 96 DPI is the standard
+
         // Get cursor position to find the current monitor
         let mut cursor_pos = POINT { x: 0, y: 0 };
         if GetCursorPos(&mut cursor_pos) == 0 {
@@ -399,8 +406,8 @@ fn center_window_windows(ctx: &egui::Context, window_size: egui::Vec2) {
             let screen_height = GetSystemMetrics(SM_CYSCREEN) as f32;
             
             let pos = egui::pos2(
-                (screen_width - window_size.x) / 2.0,
-                (screen_height - window_size.y) / 2.0,
+                (screen_width - (window_size.x * dpi_scale)) / 2.0,
+                (screen_height - (window_size.y * dpi_scale)) / 2.0,
             );
             ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(window_size));
             ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(pos));
@@ -413,25 +420,28 @@ fn center_window_windows(ctx: &egui::Context, window_size: egui::Vec2) {
         monitor_info.cbSize = mem::size_of::<MONITORINFOEXA>() as u32;
         
         if GetMonitorInfoA(monitor, &mut monitor_info as *mut _ as *mut _) != 0 {
-            // Use the work area (screen minus taskbar)
+            // Use the work area (screen minus taskbar) with DPI adjustment
             let work_rect = monitor_info.rcWork;
             let work_width = (work_rect.right - work_rect.left) as f32;
             let work_height = (work_rect.bottom - work_rect.top) as f32;
             
+            let scaled_window_width = window_size.x * dpi_scale;
+            let scaled_window_height = window_size.y * dpi_scale;
+            
             let pos = egui::pos2(
-                work_rect.left as f32 + (work_width - window_size.x) / 2.0,
-                work_rect.top as f32 + (work_height - window_size.y) / 2.0,
+                work_rect.left as f32 + (work_width - scaled_window_width) / 2.0,
+                work_rect.top as f32 + (work_height - scaled_window_height) / 2.0,
             );
             ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(window_size));
             ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(pos));
         } else {
-            // Final fallback
+            // Final fallback with DPI scaling
             let screen_width = GetSystemMetrics(SM_CXSCREEN) as f32;
             let screen_height = GetSystemMetrics(SM_CYSCREEN) as f32;
             
             let pos = egui::pos2(
-                (screen_width - window_size.x) / 2.0,
-                (screen_height - window_size.y) / 2.0,
+                (screen_width - (window_size.x * dpi_scale)) / 2.0,
+                (screen_height - (window_size.y * dpi_scale)) / 2.0,
             );
             ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(window_size));
             ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(pos));

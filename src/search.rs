@@ -12,30 +12,52 @@ pub fn fd_search(query: &str, limit: usize) -> Vec<PathBuf> {
     #[cfg(windows)]
     {
         if query.is_empty() { return vec![]; }
-        // Use PowerShell to search top-level home and Desktop/Documents plus PATH executables.
-        let home = std::env::var("USERPROFILE").or_else(|_| std::env::var("HOMEPATH")).unwrap_or_default();
-        let ps_query = format!(
-            "$l=@();$p='{}';if(Test-Path $p){{$l+=Get-ChildItem -ErrorAction SilentlyContinue -Depth 2 -Path $p -Filter '*{}*'}};$env:PATH.Split(';')|ForEach-Object{{if(Test-Path $_){{$l+=Get-ChildItem -ErrorAction SilentlyContinue -Path $_ -Filter '*{}*'}}}};$l|Select -First {} -ExpandProperty FullName",
-            home.replace('\\', "/"), query, query, limit
-        );
-        if let Ok(out) = Command::new("powershell").arg("-NoProfile").arg("-Command").arg(ps_query).output() {
-            if out.status.success() {
-                let s = String::from_utf8_lossy(&out.stdout);
-                let mut paths: Vec<PathBuf> = s.lines().filter(|l| !l.trim().is_empty()).map(|l| PathBuf::from(l.trim())).collect();
-                if paths.is_empty() {
-                    // fallback to where.exe
-                    if let Ok(out2) = Command::new("where").arg(query).output() {
-                        if out2.status.success() {
-                            let s2 = String::from_utf8_lossy(&out2.stdout);
-                            paths.extend(s2.lines().filter(|l| !l.trim().is_empty()).map(|l| PathBuf::from(l.trim())));
+        
+        let mut results = Vec::new();
+        
+        // Fast search in common directories first
+        let search_dirs = vec![
+            std::env::var("USERPROFILE").unwrap_or_default(),
+            format!("{}\\Desktop", std::env::var("USERPROFILE").unwrap_or_default()),
+            format!("{}\\Documents", std::env::var("USERPROFILE").unwrap_or_default()),
+            format!("{}\\Downloads", std::env::var("USERPROFILE").unwrap_or_default()),
+        ];
+        
+        // Search directories with basic file system traversal (much faster than PowerShell)
+        for dir in search_dirs {
+            if results.len() >= limit { break; }
+            if let Ok(entries) = std::fs::read_dir(&dir) {
+                for entry in entries.flatten() {
+                    if results.len() >= limit { break; }
+                    let path = entry.path();
+                    if let Some(name) = path.file_name() {
+                        if let Some(name_str) = name.to_str() {
+                            if name_str.to_lowercase().contains(&query.to_lowercase()) {
+                                results.push(path);
+                            }
                         }
                     }
                 }
-                paths.truncate(limit);
-                return paths;
             }
         }
-        vec![]
+        
+        // Quick PATH search using where.exe if we need more results
+        if results.len() < limit / 2 {
+            if let Ok(out) = Command::new("where").arg(query).output() {
+                if out.status.success() {
+                    let s = String::from_utf8_lossy(&out.stdout);
+                    for line in s.lines().take(limit - results.len()) {
+                        let line = line.trim();
+                        if !line.is_empty() {
+                            results.push(PathBuf::from(line));
+                        }
+                    }
+                }
+            }
+        }
+        
+        results.truncate(limit);
+        results
     }
     #[cfg(not(windows))]
     {
