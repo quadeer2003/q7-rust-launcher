@@ -5,7 +5,7 @@ use std::process::Command;
 pub fn run_shell(cmd: &str) -> Result<()> {
     #[cfg(windows)]
     {
-        Command::new("cmd").arg("/C").arg(cmd).spawn()?;
+        run_windows_command_hidden("cmd", &["/C", cmd])?;
     }
     #[cfg(not(windows))]
     {
@@ -17,5 +17,19 @@ pub fn run_shell(cmd: &str) -> Result<()> {
         if env::var("LC_ALL").is_err() { c.env("LC_ALL", "C.UTF-8"); }
         c.stdout(Stdio::null()).stderr(Stdio::null()).spawn()?;
     }
+    Ok(())
+}
+
+#[cfg(windows)]
+pub fn run_windows_command_hidden(program: &str, args: &[&str]) -> Result<()> {
+    use std::os::windows::process::CommandExt;
+    use winapi::um::winbase::CREATE_NO_WINDOW;
+    
+    let mut cmd = Command::new(program);
+    for arg in args {
+        cmd.arg(arg);
+    }
+    cmd.creation_flags(CREATE_NO_WINDOW);
+    cmd.spawn()?;
     Ok(())
 }

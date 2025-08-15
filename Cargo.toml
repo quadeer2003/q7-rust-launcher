@@ -3,6 +3,10 @@ name = "q7-launcher"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "q7-launcher"
+path = "src/main.rs"
+
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -18,8 +22,8 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg",
 dirs = "5"
 
 [target.'cfg(windows)'.dependencies]
-winapi = { version = "0.3", features = ["winuser", "shellapi", "shlobj", "combaseapi", "objbase", "oleauto"] }
-windows = { version = "0.58", features = ["Win32_System_Com", "Win32_UI_Shell", "Win32_Foundation"] }
+winapi = { version = "0.3", features = ["winuser", "shellapi", "shlobj", "combaseapi", "objbase", "oleauto", "processthreadsapi", "winbase"] }
+windows = { version = "0.58", features = ["Win32_System_Com", "Win32_UI_Shell", "Win32_Foundation", "Win32_System_Ole"] }
 
 [profile.release]
 opt-level = "z"        

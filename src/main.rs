@@ -1,3 +1,5 @@
+#![cfg_attr(windows, windows_subsystem = "windows")]
+
 mod search;
 mod commands;
 mod apps;
@@ -6,6 +8,7 @@ mod config;
 use eframe::{egui, NativeOptions};
 use egui::{RichText, TextStyle};
 use std::sync::{Arc, Mutex};
+#[cfg(not(windows))]
 use std::process::{Command, Stdio};
 #[cfg(not(windows))]
 use std::env;
@@ -380,12 +383,68 @@ fn center_pos_from_xrandr_points(initial_size_points: egui::Vec2, pixels_per_poi
     None
 }
 
+#[cfg(windows)]
+fn center_window_windows(ctx: &egui::Context, window_size: egui::Vec2) {
+    // Use Windows API to get the primary monitor's work area (excluding taskbar)
+    use winapi::um::winuser::{GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN, GetCursorPos, MonitorFromPoint, GetMonitorInfoA, MONITORINFOEXA, MONITOR_DEFAULTTONEAREST};
+    use winapi::shared::windef::POINT;
+    use std::mem;
+
+    unsafe {
+        // Get cursor position to find the current monitor
+        let mut cursor_pos = POINT { x: 0, y: 0 };
+        if GetCursorPos(&mut cursor_pos) == 0 {
+            // Fallback to primary monitor if cursor position fails
+            let screen_width = GetSystemMetrics(SM_CXSCREEN) as f32;
+            let screen_height = GetSystemMetrics(SM_CYSCREEN) as f32;
+            
+            let pos = egui::pos2(
+                (screen_width - window_size.x) / 2.0,
+                (screen_height - window_size.y) / 2.0,
+            );
+            ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(window_size));
+            ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(pos));
+            return;
+        }
+
+        // Get monitor info for the monitor containing the cursor
+        let monitor = MonitorFromPoint(cursor_pos, MONITOR_DEFAULTTONEAREST);
+        let mut monitor_info: MONITORINFOEXA = mem::zeroed();
+        monitor_info.cbSize = mem::size_of::<MONITORINFOEXA>() as u32;
+        
+        if GetMonitorInfoA(monitor, &mut monitor_info as *mut _ as *mut _) != 0 {
+            // Use the work area (screen minus taskbar)
+            let work_rect = monitor_info.rcWork;
+            let work_width = (work_rect.right - work_rect.left) as f32;
+            let work_height = (work_rect.bottom - work_rect.top) as f32;
+            
+            let pos = egui::pos2(
+                work_rect.left as f32 + (work_width - window_size.x) / 2.0,
+                work_rect.top as f32 + (work_height - window_size.y) / 2.0,
+            );
+            ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(window_size));
+            ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(pos));
+        } else {
+            // Final fallback
+            let screen_width = GetSystemMetrics(SM_CXSCREEN) as f32;
+            let screen_height = GetSystemMetrics(SM_CYSCREEN) as f32;
+            
+            let pos = egui::pos2(
+                (screen_width - window_size.x) / 2.0,
+                (screen_height - window_size.y) / 2.0,
+            );
+            ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(window_size));
+            ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(pos));
+        }
+    }
+}
+
 fn run_action(a: &Action) {
     match a {
         Action::LaunchApp(cmd) => {
             #[cfg(windows)]
             {
-                let _ = Command::new("cmd").arg("/C").arg(cmd).stdout(Stdio::null()).stderr(Stdio::null()).spawn();
+                let _ = crate::commands::run_windows_command_hidden("cmd", &["/C", cmd]);
             }
             #[cfg(not(windows))]
             {
@@ -399,8 +458,7 @@ fn run_action(a: &Action) {
         Action::OpenFile(path) => {
             #[cfg(windows)]
             {
-                let _ = Command::new("cmd").arg("/C").arg("start").arg("").arg(path)
-                    .stdout(Stdio::null()).stderr(Stdio::null()).spawn();
+                let _ = crate::commands::run_windows_command_hidden("cmd", &["/C", "start", "", path]);
             }
             #[cfg(not(windows))]
             {
@@ -417,8 +475,7 @@ fn run_action(a: &Action) {
         Action::WebSearch(url) => {
             #[cfg(windows)]
             {
-                let _ = Command::new("cmd").arg("/C").arg("start").arg("").arg(url)
-                    .stdout(Stdio::null()).stderr(Stdio::null()).spawn();
+                let _ = crate::commands::run_windows_command_hidden("cmd", &["/C", "start", "", url]);
             }
             #[cfg(not(windows))]
             {
@@ -475,13 +532,7 @@ fn main() -> eframe::Result<()> {
         if st.center_frames_remaining > 0 {
             #[cfg(windows)]
             {
-                let screen = ctx.screen_rect();
-                let pos = egui::pos2(
-                    screen.center().x - INITIAL_SIZE.x / 2.0,
-                    screen.center().y - INITIAL_SIZE.y / 2.0,
-                );
-                ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(INITIAL_SIZE));
-                ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(pos));
+                center_window_windows(ctx, INITIAL_SIZE);
                 st.center_frames_remaining -= 1;
             }
             #[cfg(not(windows))]
