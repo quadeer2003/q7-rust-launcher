@@ -2,6 +2,46 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::search::fuzzy_score;
+#[cfg(windows)]
+fn get_windows_system_apps() -> Vec<DesktopApp> {
+    let mut apps = Vec::new();
+    
+    // Common system applications with their typical paths and special handling
+    let system_apps = vec![
+        ("File Explorer", "explorer.exe", None),
+        ("Command Prompt", "cmd.exe", None),
+        ("PowerShell", "powershell.exe", None),
+        ("Task Manager", "taskmgr.exe", None),
+        ("Registry Editor", "regedit.exe", None),
+        ("Control Panel", "control.exe", None),
+        ("Device Manager", "devmgmt.msc", None),
+        ("System Information", "msinfo32.exe", None),
+        ("Calculator", "calc.exe", None),
+        ("Notepad", "notepad.exe", None),
+        ("Paint", "mspaint.exe", None),
+        ("System Configuration", "msconfig.exe", None),
+        ("Services", "services.msc", None),
+        ("Event Viewer", "eventvwr.exe", None),
+        ("Computer Management", "compmgmt.msc", None),
+        ("Disk Management", "diskmgmt.msc", None),
+        ("Character Map", "charmap.exe", None),
+        ("Windows Settings", "ms-settings:", Some("Windows 10/11 Settings")),
+        ("Run Dialog", "rundll32.exe shell32.dll,#61", Some("Open Run dialog")),
+    ];
+    
+    for (name, exec, description) in system_apps {
+        apps.push(DesktopApp {
+            name: name.to_string(),
+            exec: Some(exec.to_string()),
+            icon: None,
+            path: PathBuf::from("system"),
+            resolved_icon_path: None,
+            description: description.map(|d| d.to_string()),
+        });
+    }
+    
+    apps
+}
 
 #[derive(Clone, Debug, Default)]
 pub struct DesktopApp {
@@ -21,6 +61,10 @@ pub fn load_apps() -> Vec<DesktopApp> {
     #[cfg(windows)]
     {
         let mut out = Vec::new();
+        
+        // Add common Windows system applications first
+        out.extend(get_windows_system_apps());
+        
         // Typical Start Menu locations
         let mut roots: Vec<PathBuf> = Vec::new();
         if let Ok(programdata) = std::env::var("ProgramData") {
@@ -246,49 +290,94 @@ fn extract_exe_icon(exe_path: &Path) -> Option<PathBuf> {
 
 #[cfg(windows)]
 fn parse_windows_shortcut(path: &Path) -> Option<DesktopApp> {
-    // Enhanced .lnk parser with icon extraction
+    // Enhanced .lnk parser with support for various shortcut types
     let name = path.file_stem().and_then(|s| s.to_str()).unwrap_or("?").to_string();
     
     // Try to extract target from .lnk file
     let mut target_path = None;
     let mut icon_path = None;
     
-    // Simple .lnk parsing - look for executable paths
+    // Simple .lnk parsing - look for various target types
     if let Ok(data) = std::fs::read(path) {
         let data_str = String::from_utf8_lossy(&data);
         
-        // Look for .exe paths in the binary data
+        // Look for different types of targets in the binary data
         let mut potential_paths = Vec::new();
+        
+        // Look for executable paths
         for chunk in data_str.split('\0') {
             let chunk = chunk.trim();
-            if chunk.len() > 4 && chunk.contains(".exe") {
-                // Clean up the path
-                if let Some(start) = chunk.find("C:\\") {
-                    if let Some(end) = chunk[start..].find(".exe") {
-                        let exe_path = &chunk[start..start + end + 4];
-                        potential_paths.push(exe_path);
+            if chunk.len() > 4 {
+                // Regular executables
+                if chunk.contains(".exe") {
+                    if let Some(start) = chunk.find("C:\\") {
+                        if let Some(end) = chunk[start..].find(".exe") {
+                            let exe_path = &chunk[start..start + end + 4];
+                            potential_paths.push(exe_path.to_string());
+                        }
+                    } else if chunk.ends_with(".exe") && chunk.len() < 300 {
+                        potential_paths.push(chunk.to_string());
                     }
-                } else if chunk.ends_with(".exe") && chunk.len() < 300 {
-                    // Handle relative or shorter paths
-                    potential_paths.push(chunk);
+                }
+                // MSC files (Management Console)
+                else if chunk.contains(".msc") && chunk.len() < 300 {
+                    if chunk.ends_with(".msc") {
+                        potential_paths.push(format!("mmc.exe \"{}\"", chunk));
+                    }
+                }
+                // Windows special shortcuts
+                else if chunk.starts_with("shell:") || chunk.starts_with("ms-") {
+                    potential_paths.push(chunk.to_string());
+                }
+                // CLSID shortcuts
+                else if chunk.contains("::") && chunk.len() < 100 {
+                    potential_paths.push(chunk.to_string());
                 }
             }
         }
         
-        // Find the first valid executable
+        // Find the first valid target
         for potential in potential_paths {
-            let test_path = PathBuf::from(potential);
-            if test_path.exists() {
-                target_path = Some(potential.to_string());
-                icon_path = Some(potential.to_string());
+            if potential.starts_with("C:\\") {
+                let test_path = PathBuf::from(&potential);
+                if test_path.exists() {
+                    target_path = Some(potential.clone());
+                    icon_path = Some(potential);
+                    break;
+                }
+            } else if potential.starts_with("shell:") || potential.starts_with("ms-") || potential.contains("::") || potential.starts_with("mmc.exe") {
+                // Special Windows targets - assume they're valid
+                target_path = Some(potential);
+                break;
+            } else if potential.ends_with(".exe") {
+                // Try system paths for executables
+                let system_dirs = vec![
+                    "C:\\Windows\\System32\\",
+                    "C:\\Windows\\",
+                    "C:\\Windows\\SysWOW64\\",
+                ];
+                
+                for sys_dir in system_dirs {
+                    let full_path = format!("{}{}", sys_dir, potential);
+                    if PathBuf::from(&full_path).exists() {
+                        target_path = Some(full_path.clone());
+                        icon_path = Some(full_path);
+                        break;
+                    }
+                }
+                
+                if target_path.is_none() {
+                    // Just use the exe name, Windows will find it
+                    target_path = Some(potential);
+                }
                 break;
             }
         }
     }
     
     let exec = target_path.unwrap_or_else(|| {
-        // Fallback: try to run the shortcut directly
-        format!("\"{}\"", path.display())
+        // Fallback: try to run the shortcut directly with explorer
+        format!("explorer.exe \"{}\"", path.display())
     });
     
     Some(DesktopApp{ 
