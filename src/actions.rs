@@ -18,6 +18,7 @@ pub enum Action {
     WebSearch(String),
     ApplyTheme(String),
     CopyToClipboard(String),
+    SpotifyCommand(String),
     None,
 }
 
@@ -78,6 +79,20 @@ pub fn run_action(a: &Action) {
         Action::CopyToClipboard(text) => {
             if let Err(e) = crate::autocomplete::copy_to_clipboard(text) {
                 eprintln!("Failed to copy to clipboard: {}", e);
+            }
+        }
+        Action::SpotifyCommand(cmd) => {
+            #[cfg(windows)]
+            {
+                let _ = crate::commands::run_windows_command_hidden("cmd", &["/C", cmd]);
+            }
+            #[cfg(not(windows))]
+            {
+                let mut c = Command::new("sh");
+                c.arg("-c").arg(cmd);
+                if env::var("LANG").is_err() { c.env("LANG", "C.UTF-8"); }
+                if env::var("LC_ALL").is_err() { c.env("LC_ALL", "C.UTF-8"); }
+                let _ = c.stdout(Stdio::null()).stderr(Stdio::null()).spawn();
             }
         }
         Action::None => {}

@@ -77,6 +77,44 @@ impl AppState {
             return;
         }
 
+        // Spotify controls: type "sp" to show playback controls
+        if q.starts_with("sp") {
+            let spotify_commands = vec![
+                ("play", "▶️ Start playback", "playerctl play"),
+                ("pause", "⏸️ Pause playback", "playerctl pause"),
+                ("play-pause", "⏯️ Toggle play/pause", "playerctl play-pause"),
+                ("stop", "⏹️ Stop playback", "playerctl stop"),
+                ("next", "⏭️ Next track", "playerctl next"),
+                ("previous", "⏮️ Previous track", "playerctl previous"),
+                ("vol-50", "🔉 Set volume to 50%", "playerctl volume 0.5"),
+                ("vol-80", "🔊 Set volume to 80%", "playerctl volume 0.8"),
+                ("vol-up", "🔊 Increase volume by 10%", "playerctl volume 0.1+"),
+                ("vol-down", "🔉 Decrease volume by 10%", "playerctl volume 0.1-"),
+                ("vol-max", "🔊 Set volume to 100%", "playerctl volume 1.0"),
+                ("vol-mute", "🔇 Mute volume", "playerctl volume 0.0"),
+                ("shuffle", "🔀 Toggle shuffle", "playerctl shuffle toggle"),
+                ("repeat", "🔁 Toggle repeat", "playerctl loop track"),
+                ("status", "ℹ️ Show current status", "playerctl status"),
+                ("metadata", "📋 Show track info", "playerctl metadata --format '{{ title }} - {{ artist }}'"),
+            ];
+
+            let spotify_query = if q.len() > 2 { q[2..].trim() } else { "" };
+            
+            for (command, description, playerctl_cmd) in spotify_commands {
+                if spotify_query.is_empty() || command.contains(spotify_query) {
+                    self.results.push(Entry {
+                        title: format!("🎵 Spotify {}", command),
+                        subtitle: description.to_string(),
+                        action: Action::SpotifyCommand(playerctl_cmd.to_string()),
+                    });
+                }
+            }
+            
+            if !self.results.is_empty() {
+                return;
+            }
+        }
+
         // Web search via configurable prefixes
         for eng in &self.config.search_engines {
             if q.starts_with(&eng.prefix) {

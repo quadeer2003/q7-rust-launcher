@@ -251,27 +251,46 @@ fn render_results(ui: &mut egui::Ui, st: &mut AppState) {
 }
 
 fn render_icon(ui: &mut egui::Ui, st: &mut AppState, entry: &crate::actions::Entry) {
-    if let Action::LaunchApp(_) = entry.action {
-        if let Some(&idx) = st.app_by_name.get(&entry.title) {
-            let app = &st.all_apps[idx];
-            let icon_path_owned: Option<std::path::PathBuf> = match (&app.resolved_icon_path, &app.icon) {
-                (Some(p), _) => Some(p.clone()),
-                (None, icon_field) => apps::resolve_icon_path(icon_field),
-            };
-            
-            if let Some(icon_path) = icon_path_owned.as_ref() {
-                let key = format!("{}@{}", icon_path.to_string_lossy(), ICON_SIZE_PX as i32);
+    match &entry.action {
+        Action::LaunchApp(_) => {
+            if let Some(&idx) = st.app_by_name.get(&entry.title) {
+                let app = &st.all_apps[idx];
+                let icon_path_owned: Option<std::path::PathBuf> = match (&app.resolved_icon_path, &app.icon) {
+                    (Some(p), _) => Some(p.clone()),
+                    (None, icon_field) => apps::resolve_icon_path(icon_field),
+                };
                 
-                if !st.icon_textures.contains_key(&key) {
-                    load_icon_texture(ui, st, icon_path, &key);
-                }
-                
-                if let Some(tex) = st.icon_textures.get(&key) {
-                    let sz = egui::vec2(ICON_SIZE_PX, ICON_SIZE_PX);
-                    ui.add(egui::Image::new(tex).fit_to_exact_size(sz));
-                    ui.add_space(10.0);
+                if let Some(icon_path) = icon_path_owned.as_ref() {
+                    let key = format!("{}@{}", icon_path.to_string_lossy(), ICON_SIZE_PX as i32);
+                    
+                    if !st.icon_textures.contains_key(&key) {
+                        load_icon_texture(ui, st, icon_path, &key);
+                    }
+                    
+                    if let Some(tex) = st.icon_textures.get(&key) {
+                        let sz = egui::vec2(ICON_SIZE_PX, ICON_SIZE_PX);
+                        ui.add(egui::Image::new(tex).fit_to_exact_size(sz));
+                        ui.add_space(10.0);
+                    }
                 }
             }
+        }
+        Action::SpotifyCommand(_) => {
+            let spotify_icon_path = std::path::Path::new("assets/icons/spotify.png");
+            let key = format!("spotify@{}", ICON_SIZE_PX as i32);
+            
+            if !st.icon_textures.contains_key(&key) {
+                load_icon_texture(ui, st, spotify_icon_path, &key);
+            }
+            
+            if let Some(tex) = st.icon_textures.get(&key) {
+                let sz = egui::vec2(ICON_SIZE_PX, ICON_SIZE_PX);
+                ui.add(egui::Image::new(tex).fit_to_exact_size(sz));
+                ui.add_space(10.0);
+            }
+        }
+        _ => {
+            // No icon for other action types
         }
     }
 }
