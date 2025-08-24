@@ -79,14 +79,28 @@ fn render_search_input(ui: &mut egui::Ui, st: &mut AppState) -> Option<egui::Res
 
         // Place the text edit inside with padding
         let mut child = ui.child_ui(rect.shrink2(egui::vec2(10.0, 6.0)), *ui.layout());
+        
+        let hint_text = if st.autocomplete_mode {
+            "Autocomplete Mode - Tab to toggle | Type to get word suggestions"
+        } else {
+            "Apps | f <name> | ?q / g q | Tab for autocomplete"
+        };
+        
         let r = child.add_sized(
             [520.0, 32.0],
             egui::TextEdit::singleline(&mut st.query)
-                .hint_text("Apps | f <name> | ?q / g q")
+                .hint_text(hint_text)
                 .font(TextStyle::Heading)
                 .frame(false)
         );
         resp = Some(r);
+    });
+
+    // Show mode indicator
+    ui.vertical_centered(|ui| {
+        if st.autocomplete_mode {
+            ui.label(egui::RichText::new("🔤 Autocomplete Mode").color(st.theme.muted).size(12.0));
+        }
     });
 
     // Focus on first open
@@ -105,6 +119,19 @@ fn handle_keyboard_input(ui: &egui::Ui, ctx: &egui::Context, st: &mut AppState) 
     let enter = ui.input(|i| i.key_pressed(egui::Key::Enter));
     let up = ui.input(|i| i.key_pressed(egui::Key::ArrowUp));
     let down = ui.input(|i| i.key_pressed(egui::Key::ArrowDown));
+    let tab = ui.input(|i| i.key_pressed(egui::Key::Tab));
+    
+    // Toggle autocomplete mode with Tab key
+    if tab {
+        st.toggle_autocomplete_mode();
+        // Refresh results with new mode
+        let file_mode = st.query.starts_with("f ");
+        st.refresh_results(file_mode);
+        if st.selected >= st.results.len() { 
+            st.selected = st.results.len().saturating_sub(1); 
+        }
+        return; // Don't process other keys when toggling
+    }
     
     if up && st.selected > 0 { 
         st.selected -= 1; 
@@ -122,6 +149,10 @@ fn handle_keyboard_input(ui: &egui::Ui, ctx: &egui::Context, st: &mut AppState) 
                         st.config.current_theme = Some(name);
                         let _ = config::save_config(&st.config);
                     }
+                }
+                Action::CopyToClipboard(_) => {
+                    run_action(&action);
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                 }
                 other => {
                     run_action(&other);

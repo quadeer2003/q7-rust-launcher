@@ -17,6 +17,7 @@
     { "name": "Google Translate", "prefix": "tr",      "url": "https://translate.google.com/?sl=auto&tl=en&text=%s" },
     { "name": "Bing",             "prefix": "bing",    "url": "https://www.bing.com/search?q=%s" },
     { "name": "Dev.to",           "prefix": "devto",   "url": "https://dev.to/search?q=%s" }
-  ]
+  ],
+  "autocomplete_words_file": "assets/autocomplete_words.txt"
 }
 

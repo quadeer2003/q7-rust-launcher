@@ -9,6 +9,7 @@ mod app_state;
 mod actions;
 mod ui;
 mod utils;
+mod autocomplete;
 
 use eframe::{egui, NativeOptions};
 use std::sync::{Arc, Mutex};
@@ -26,6 +27,9 @@ fn main() -> eframe::Result<()> {
             state.theme = p;
         }
     }
+    
+    // Load autocomplete words if configured
+    state.load_autocomplete_words();
 
     let state = Arc::new(Mutex::new(state));
 

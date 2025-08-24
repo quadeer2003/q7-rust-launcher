@@ -18,6 +18,9 @@ Thumbs.db
 *.swp
 *.swo
 
+# Personal autocomplete words file (should be in user config)
+assets/autocomplete_words.txt
+
 # Logs and env
 *.log
 .env

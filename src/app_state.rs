@@ -1,4 +1,4 @@
-use crate::{apps, config, theme::ThemePalette, actions::{Action, Entry}, search};
+use crate::{apps, config, theme::ThemePalette, actions::{Action, Entry}, search, autocomplete::AutocompleteEngine};
 use std::collections::HashMap;
 use std::time::Instant;
 use eframe::egui::TextureHandle;
@@ -16,6 +16,8 @@ pub struct AppState {
     pub last_input: Instant,
     pub last_fd_query: String,
     pub theme: ThemePalette,
+    pub autocomplete: AutocompleteEngine,
+    pub autocomplete_mode: bool,
 }
 
 impl Default for AppState {
@@ -33,6 +35,8 @@ impl Default for AppState {
             last_input: Instant::now(),
             last_fd_query: String::new(),
             theme: ThemePalette::dracula(),
+            autocomplete: AutocompleteEngine::new(),
+            autocomplete_mode: false,
         }
     }
 }
@@ -46,6 +50,20 @@ impl AppState {
         let q = q_apps;
         self.results.clear();
         if q.is_empty() { return; }
+
+        // Autocomplete mode: Check if we should show autocomplete suggestions
+        if self.autocomplete_mode && self.autocomplete.has_words() {
+            let suggestions = self.autocomplete.get_suggestions(q, 10);
+            for suggestion in suggestions {
+                self.results.push(Entry {
+                    title: suggestion.clone(),
+                    subtitle: "Copy to clipboard".into(),
+                    action: Action::CopyToClipboard(suggestion),
+                });
+            }
+            // In autocomplete mode, don't show other results
+            return;
+        }
 
         // Theme picker: type "theme" to list themes
         if q.starts_with("theme") {
@@ -105,5 +123,54 @@ impl AppState {
             subtitle: "Execute in background".into(),
             action: Action::RunCmd(q.into()),
         });
+    }
+
+    pub fn load_autocomplete_words(&mut self) {
+        if let Some(file_path) = &self.config.autocomplete_words_file {
+            // Create default autocomplete file if it doesn't exist
+            if !std::path::Path::new(file_path).exists() {
+                self.create_default_autocomplete_file(file_path);
+            }
+            
+            if let Err(e) = self.autocomplete.load_from_file(file_path) {
+                eprintln!("Failed to load autocomplete words from {}: {}", file_path, e);
+            }
+        }
+    }
+
+    fn create_default_autocomplete_file(&self, file_path: &str) {
+        let default_words = vec![
+            "rust", "python", "javascript", "typescript", "programming", "development",
+            "algorithm", "data", "structure", "function", "variable", "string", "integer",
+            "boolean", "array", "vector", "hashmap", "dictionary", "class", "object",
+            "method", "interface", "trait", "enum", "struct", "async", "await", "promise",
+            "future", "thread", "process", "memory", "pointer", "reference", "borrow",
+            "ownership", "lifetime", "compile", "runtime", "debug", "test", "benchmark",
+            "performance", "optimization", "refactor", "module", "package", "crate",
+            "library", "framework", "api", "rest", "http", "https", "json", "xml",
+            "yaml", "toml", "database", "sql", "nosql", "mongodb", "postgresql",
+            "mysql", "sqlite", "redis", "cache", "session", "authentication",
+            "authorization", "jwt", "oauth", "security", "encryption", "hash", "salt",
+            "password", "user", "admin", "client", "server", "backend", "frontend",
+            "fullstack", "web", "mobile", "desktop", "game", "graphics", "ui", "ux",
+            "design", "layout", "component", "widget", "button", "input", "form",
+            "validation", "error", "exception", "log", "monitor", "deploy", "ci", "cd",
+            "docker", "kubernetes", "aws", "azure", "gcp", "linux", "windows", "macos",
+            "terminal", "shell", "bash", "zsh", "fish", "vim", "emacs", "vscode",
+            "intellij", "git", "github", "gitlab", "commit", "push", "pull", "merge",
+            "branch", "tag", "release", "version", "semantic", "major", "minor", "patch",
+            "changelog"
+        ];
+        
+        let content = default_words.join(", ");
+        if let Err(e) = std::fs::write(file_path, content) {
+            eprintln!("Failed to create default autocomplete file {}: {}", file_path, e);
+        }
+    }
+
+    pub fn toggle_autocomplete_mode(&mut self) {
+        self.autocomplete_mode = !self.autocomplete_mode;
+        // Clear current results to refresh with new mode
+        self.results.clear();
     }
 }

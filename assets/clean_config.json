@@ -1,0 +1,121 @@
+{
+  "search_engines": [
+    {
+      "name": "DuckDuckGo",
+      "prefix": "dd",
+      "url": "https://duckduckgo.com/?q=%s"
+    },
+    {
+      "name": "Google",
+      "prefix": "gg",
+      "url": "https://www.google.com/search?q=%s"
+    },
+    {
+      "name": "YouTube",
+      "prefix": "yt",
+      "url": "https://www.youtube.com/results?search_query=%s"
+    },
+    {
+      "name": "Wikipedia",
+      "prefix": "w",
+      "url": "https://en.wikipedia.org/wiki/Special:Search?search=%s"
+    },
+    {
+      "name": "GitHub Repos",
+      "prefix": "ghrepo",
+      "url": "https://github.com/search?q=%s"
+    },
+    {
+      "name": "GitHub User",
+      "prefix": "ghuser",
+      "url": "https://github.com/%s"
+    },
+    {
+      "name": "Stack Overflow",
+      "prefix": "so",
+      "url": "https://stackoverflow.com/search?q=%s"
+    },
+    {
+      "name": "MDN Docs",
+      "prefix": "mdn",
+      "url": "https://developer.mozilla.org/en-US/search?q=%s"
+    },
+    {
+      "name": "npm Packages",
+      "prefix": "npm",
+      "url": "https://www.npmjs.com/search?q=%s"
+    },
+    {
+      "name": "PyPI",
+      "prefix": "pypi",
+      "url": "https://pypi.org/search/?q=%s"
+    },
+    {
+      "name": "Google Images",
+      "prefix": "img",
+      "url": "https://www.google.com/images?q=%s"
+    },
+    {
+      "name": "Reddit",
+      "prefix": "rd",
+      "url": "https://www.reddit.com/search/?q=%s"
+    },
+    {
+      "name": "Amazon India",
+      "prefix": "az",
+      "url": "https://www.amazon.in/s?k=%s"
+    },
+    {
+      "name": "Flipkart",
+      "prefix": "fp",
+      "url": "https://www.flipkart.com/search?q=%s"
+    },
+    {
+      "name": "Twitter/X",
+      "prefix": "tw",
+      "url": "https://twitter.com/search?q=%s"
+    },
+    {
+      "name": "Instagram Tag",
+      "prefix": "instag",
+      "url": "https://www.instagram.com/explore/tags/%s/"
+    },
+    {
+      "name": "Instagram User",
+      "prefix": "inuser",
+      "url": "https://www.instagram.com/%s/"
+    },
+    {
+      "name": "LinkedIn",
+      "prefix": "li",
+      "url": "https://www.linkedin.com/search/results/all/?keywords=%s"
+    },
+    {
+      "name": "Google Translate",
+      "prefix": "tr",
+      "url": "https://translate.google.co.in/?sl=auto&tl=en&text=%s"
+    },
+    {
+      "name": "Bing India",
+      "prefix": "bing",
+      "url": "https://www.bing.com/search?q=%s&cc=IN"
+    },
+    {
+      "name": "Dev.to",
+      "prefix": "devto",
+      "url": "https://dev.to/search?q=%s"
+    },
+    {
+      "name": "ChatGPT",
+      "prefix": "gpt",
+      "url": "https://chat.openai.com/?q=%s"
+    },
+    {
+      "name": "HudsonRock",
+      "prefix": "jam",
+      "url": "https://cavalier.hudsonrock.com/api/json/v2/osint-tools/search-by-username?username=%s"
+    }
+  ],
+  "current_theme": "Dracula",
+  "autocomplete_words_file": "/home/ashu/.config/q7-launcher/autocomplete_words.txt"
+}

@@ -1,11 +1,32 @@
 use serde::{Deserialize, Serialize};
 
+fn get_default_autocomplete_file_path() -> Option<String> {
+    #[cfg(not(windows))]
+    {
+        if let Ok(bd) = xdg::BaseDirectories::with_prefix("q7-launcher") {
+            if let Ok(path) = bd.place_config_file("autocomplete_words.txt") {
+                return Some(path.to_string_lossy().to_string());
+            }
+        }
+    }
+    #[cfg(windows)]
+    {
+        if let Some(dir) = dirs::config_dir() {
+            let path = dir.join("q7-launcher").join("autocomplete_words.txt");
+            return Some(path.to_string_lossy().to_string());
+        }
+    }
+    None
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default)]
     pub search_engines: Vec<SearchEngine>,
     #[serde(default)]
     pub current_theme: Option<String>,
+    #[serde(default)]
+    pub autocomplete_words_file: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32,6 +53,7 @@ impl Default for Config {
                 SearchEngine { name: "GitHub".into(), prefix: "gh ".into(), url: "https://github.com/search?q=%s".into() },
             ],
             current_theme: Some("Dracula".into()),
+            autocomplete_words_file: get_default_autocomplete_file_path(),
         }
     }
 }

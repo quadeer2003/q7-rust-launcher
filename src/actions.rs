@@ -17,6 +17,7 @@ pub enum Action {
     RunCmd(String),
     WebSearch(String),
     ApplyTheme(String),
+    CopyToClipboard(String),
     None,
 }
 
@@ -73,6 +74,11 @@ pub fn run_action(a: &Action) {
         }
         Action::ApplyTheme(_) => {
             // no-op here; theme is applied in UI state
+        }
+        Action::CopyToClipboard(text) => {
+            if let Err(e) = crate::autocomplete::copy_to_clipboard(text) {
+                eprintln!("Failed to copy to clipboard: {}", e);
+            }
         }
         Action::None => {}
     }
